@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SensorBabel — Physical Sensor Authority as Hallucination Firewall for MLLMs</title>
+<meta name="description" content="SensorBabel: Exploiting Physical Sensor Authority as an Inference-Time Hallucination Firewall for Multimodal LLMs. CVPR 2026 MMFM5 Workshop.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root{
+  --bg:#07080b;--surface:#0d0f16;--surface2:#12141e;
+  --border:#1c1f2e;--border2:#252840;
+  --accent:#00e5ff;--purple:#8b7fff;--red:#ff5e5e;--green:#00e599;--orange:#ffaa4d;
+  --text:#e6e8f2;--text-dim:#868ca8;--text-faint:#3e4258;
+  --lidar:#00e5ff;--radar:#8b7fff;--thermal:#ff5e5e;--depth:#00e599;--imu:#ffaa4d;
+  --code-bg:#090b10;--code-string:#a8ff78;--code-key:#79c0ff;
+  --code-comment:#4a5568;--code-class:#ffa657;--code-num:#d2a8ff;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.75;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");opacity:.5}
+.wrap{max-width:920px;margin:0 auto;padding:0 1.75rem;position:relative;z-index:1}
+.wrap-wide{max-width:1080px;margin:0 auto;padding:0 1.75rem;position:relative;z-index:1}
+section{padding:5.5rem 0;border-top:1px solid var(--border)}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(7,8,11,.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1080px;margin:0 auto;padding:0 1.75rem;height:54px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'DM Mono',monospace;font-size:.82rem;letter-spacing:.12em;color:var(--accent);text-decoration:none}
+.nav-logo span{color:var(--text-dim)}
+.nav-links{display:flex;gap:1.8rem;list-style:none}
+.nav-links a{font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);text-decoration:none;transition:color .18s}
+.nav-links a:hover{color:var(--accent)}
+@media(max-width:680px){.nav-links{display:none}}
+
+/* HERO */
+header{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:7rem 0 5rem;position:relative;overflow:hidden}
+.hero-grid{position:absolute;inset:0;z-index:0;background-image:linear-gradient(rgba(0,229,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.03) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(ellipse 80% 90% at 50% 50%,black,transparent)}
+.hero-orb{position:absolute;z-index:0;pointer-events:none;width:750px;height:750px;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-52%);background:radial-gradient(circle,rgba(0,229,255,.065) 0%,rgba(139,127,255,.04) 45%,transparent 70%)}
+.badge{display:inline-flex;align-items:center;gap:.55rem;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(0,229,255,.28);padding:.38rem 1rem;border-radius:2px;margin-bottom:2rem;animation:fadeUp .55s ease both}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+h1{font-family:'DM Serif Display',serif;font-size:clamp(2rem,4.8vw,3.6rem);line-height:1.14;color:var(--text);margin-bottom:2rem;max-width:820px;animation:fadeUp .55s .08s ease both}
+h1 em{font-style:italic;color:var(--accent)}
+.authors-row{display:flex;flex-wrap:wrap;gap:2rem;margin-bottom:.75rem;animation:fadeUp .55s .16s ease both}
+.author-card{display:flex;flex-direction:column;gap:.1rem}
+.author-name{font-size:.98rem;font-weight:500;color:var(--text)}
+.author-name sup{font-size:.65rem;color:var(--accent);margin-left:.15rem}
+.author-inst{font-family:'DM Mono',monospace;font-size:.74rem;color:var(--text-dim)}
+.author-email{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text-faint)}
+.footnote{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text-faint);margin-bottom:2.5rem;line-height:1.8;animation:fadeUp .55s .22s ease both}
+.cta-row{display:flex;flex-wrap:wrap;gap:.7rem;animation:fadeUp .55s .3s ease both}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.4rem;font-family:'DM Mono',monospace;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border-radius:2px;transition:all .18s;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#07080b;font-weight:500}
+.btn-primary:hover{background:#33ecff;transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,229,255,.25)}
+.btn-outline{border:1px solid var(--border2);color:var(--text-dim);background:transparent}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* TYPOGRAPHY */
+.sec-tag{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:1.25rem;display:flex;align-items:center;gap:.75rem}
+.sec-tag::after{content:'';flex:1;height:1px;background:var(--border)}
+h2{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,3vw,2.1rem);font-weight:700;line-height:1.2;color:var(--text);margin-bottom:1.25rem}
+h3{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:.6rem;margin-top:2rem}
+h3:first-of-type{margin-top:0}
+p{color:var(--text-dim);margin-bottom:.9rem}
+p:last-child{margin-bottom:0}
+strong{color:var(--text);font-weight:500}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .55s ease,transform .55s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* KPI STRIP */
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)}
+.kpi{background:var(--surface);padding:1.6rem 1.4rem;display:flex;flex-direction:column;gap:.2rem}
+.kpi-val{font-family:'DM Serif Display',serif;font-size:2.3rem;color:var(--accent);line-height:1}
+.kpi-tag{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-top:.2rem}
+.kpi-sub{font-size:.78rem;color:var(--text-dim);margin-top:.2rem}
+
+/* ABSTRACT */
+.abstract-box{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);padding:2rem 2.25rem;font-size:.97rem;line-height:1.85}
+
+/* CONTRIBUTIONS */
+.contrib-list{list-style:none;margin:1.5rem 0}
+.contrib-list li{display:flex;gap:1rem;align-items:flex-start;margin-bottom:1.1rem}
+.c-num{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--accent);border:1px solid rgba(0,229,255,.28);width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:.15rem}
+.c-text{font-size:.94rem;color:var(--text-dim)}
+.c-text strong{color:var(--text)}
+
+/* PIPELINE */
+.pipeline-wrap{margin:2.5rem 0;overflow-x:auto}
+.pipeline-svg-container{min-width:700px}
+
+/* SENSORS */
+.sensor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.9rem;margin:1.75rem 0}
+.sensor-card{background:var(--surface);border:1px solid var(--border);padding:1.2rem;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.sensor-card:hover{transform:translateY(-3px)}
+.sensor-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.sc-lidar::before{background:var(--lidar)}.sc-lidar:hover{border-color:rgba(0,229,255,.4)}
+.sc-radar::before{background:var(--radar)}.sc-radar:hover{border-color:rgba(139,127,255,.4)}
+.sc-thermal::before{background:var(--thermal)}.sc-thermal:hover{border-color:rgba(255,94,94,.4)}
+.sc-depth::before{background:var(--depth)}.sc-depth:hover{border-color:rgba(0,229,153,.4)}
+.sc-imu::before{background:var(--imu)}.sc-imu:hover{border-color:rgba(255,170,77,.4)}
+.sc-name{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.5rem}
+.sc-lidar .sc-name{color:var(--lidar)}.sc-radar .sc-name{color:var(--radar)}.sc-thermal .sc-name{color:var(--thermal)}.sc-depth .sc-name{color:var(--depth)}.sc-imu .sc-name{color:var(--imu)}
+.sc-claim{font-size:.85rem;font-weight:500;color:var(--text);margin-bottom:.2rem}
+.sc-principle{font-size:.78rem;color:var(--text-dim)}
+.sc-snr{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text-faint);margin-top:.75rem;padding-top:.6rem;border-top:1px solid var(--border)}
+
+/* SNR HEATMAP */
+.heatmap-wrap{margin:1.75rem 0;overflow-x:auto}
+.heatmap{border-collapse:collapse;width:100%;font-size:.83rem}
+.heatmap th{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);padding:.6rem .8rem;border-bottom:1px solid var(--border);text-align:center}
+.heatmap th:first-child{text-align:left}
+.heatmap td{padding:.55rem .8rem;text-align:center;font-family:'DM Mono',monospace;font-size:.8rem}
+.heatmap td:first-child{text-align:left;color:var(--text-dim);font-size:.78rem}
+.heatmap tr:hover td{background:rgba(255,255,255,.02)}
+.cell-auth{font-weight:600;border:1.5px solid currentColor;border-radius:2px}
+
+/* THEOREMS */
+.theorem{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--purple);padding:1.1rem 1.4rem;margin:.9rem 0}
+.theorem-tag{font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.45rem}
+.theorem p{font-size:.88rem;color:var(--text-dim)}
+
+/* RESULTS TABLE */
+.results-table{width:100%;border-collapse:collapse;font-size:.87rem;margin:1.75rem 0}
+.results-table th{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);padding:.7rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.results-table td{padding:.8rem 1rem;border-bottom:1px solid rgba(28,31,46,.6);color:var(--text-dim)}
+.results-table tr:hover td{background:var(--surface)}
+.results-table tr.ours td{color:var(--text);font-weight:500;background:rgba(0,229,255,.04)}
+.results-table tr.ours td.best{color:var(--accent);font-weight:600}
+.tag-no{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--green)}
+.tag-yes{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--red)}
+
+/* CHARTS */
+.charts-2col{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:1.75rem 0}
+@media(max-width:620px){.charts-2col{grid-template-columns:1fr}}
+.chart-box{background:var(--surface);border:1px solid var(--border);padding:1.4rem}
+.chart-title{font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:1.1rem}
+.bar-row{display:flex;align-items:center;gap:.7rem;margin-bottom:.55rem}
+.bar-lbl{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-dim);width:68px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;background:rgba(255,255,255,.04);height:20px;overflow:hidden}
+.bar-fill{height:100%;display:flex;align-items:center;padding-left:.45rem;font-family:'DM Mono',monospace;font-size:.67rem;font-weight:600}
+.bf-dim{background:rgba(134,140,168,.22)}.bf-dim span{color:var(--text-faint)}
+.bf-cyan{background:var(--accent);color:#07080b}
+.bf-purple{background:var(--purple);color:#07080b}
+.bf-red{background:var(--red);color:#07080b}
+.bf-green{background:var(--green);color:#07080b}
+
+/* ABLATION TABLE */
+.ab-table{width:100%;border-collapse:collapse;font-size:.84rem;margin:1.25rem 0}
+.ab-table th{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);padding:.55rem .8rem;border-bottom:1px solid var(--border);text-align:left}
+.ab-table td{padding:.65rem .8rem;border-bottom:1px solid rgba(28,31,46,.5);color:var(--text-dim)}
+.ab-table tr:hover td{background:rgba(255,255,255,.015)}
+.ab-table tr.best-row td{background:rgba(0,229,255,.04);color:var(--text);font-weight:500}
+.ab-table tr.best-row td.hi{color:var(--accent);font-weight:600}
+.ck{color:var(--green)}.cx{color:var(--red)}
+
+/* GENERALIZATION */
+.gen-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem}
+.gen-label{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-dim);width:75px;text-align:right;flex-shrink:0}
+.gen-track{flex:1;height:20px;background:rgba(255,255,255,.04);position:relative;overflow:hidden}
+.gen-base{height:100%;background:rgba(134,140,168,.25);display:flex;align-items:center;padding-left:.4rem;font-family:'DM Mono',monospace;font-size:.67rem;color:var(--text-faint)}
+.gen-ours{position:absolute;top:0;left:0;height:100%;background:var(--accent);display:flex;align-items:center;padding-left:.4rem;font-family:'DM Mono',monospace;font-size:.67rem;color:#07080b;font-weight:600}
+
+/* BENCHMARK */
+.bench-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:.9rem;margin:1.75rem 0}
+.bench-card{background:var(--surface);border:1px solid var(--border);padding:1.25rem;border-top-width:2px}
+.bench-type{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.2rem}
+.bench-sensor{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.8rem}
+.bench-count{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1}
+.bench-rate{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.35rem}
+
+/* INFO BOX */
+.info-box{background:var(--surface);border:1px solid var(--border);padding:1.4rem 1.75rem;font-size:.92rem}
+
+/* TAGS */
+.tag-row{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
+.tag{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.1em;padding:.28rem .75rem;border:1px solid var(--border2);color:var(--text-dim)}
+.tag.active{border-color:rgba(0,229,255,.35);color:var(--accent);background:rgba(0,229,255,.06)}
+
+/* ── CODE SECTION ── */
+.code-section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface2);border:1px solid var(--border);
+  border-bottom:none;padding:.6rem 1rem;
+}
+.code-file-label{
+  font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;
+  color:var(--text-dim);display:flex;align-items:center;gap:.5rem;
+}
+.code-dot{width:8px;height:8px;border-radius:50%}
+.code-tabs{display:flex;gap:0;overflow-x:auto;margin-bottom:0}
+.code-tab{
+  font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.08em;
+  padding:.5rem 1.1rem;color:var(--text-faint);cursor:pointer;
+  border:1px solid var(--border);border-bottom:none;background:var(--bg);
+  border-right:none;transition:color .15s,background .15s;white-space:nowrap;
+}
+.code-tab:last-child{border-right:1px solid var(--border)}
+.code-tab.active{background:var(--code-bg);color:var(--accent);border-bottom:1px solid var(--code-bg)}
+.code-tab:hover:not(.active){color:var(--text-dim);background:var(--surface)}
+.code-block-wrap{position:relative}
+.code-panel{display:none}
+.code-panel.active{display:block}
+pre.code-block{
+  background:var(--code-bg);border:1px solid var(--border);
+  padding:1.5rem;overflow-x:auto;font-family:'DM Mono',monospace;
+  font-size:.78rem;line-height:1.75;color:#c9d1d9;
+  border-top:none;
+}
+.kw{color:#ff7b72}.cls{color:var(--code-class)}.fn{color:#d2a8ff}
+.str{color:var(--code-string)}.num{color:var(--code-num)}
+.cm{color:var(--code-comment);font-style:italic}.py-self{color:#79c0ff}
+.copy-code-btn{
+  position:absolute;top:.75rem;right:.75rem;z-index:10;
+  background:transparent;border:1px solid var(--border2);
+  color:var(--text-faint);font-family:'DM Mono',monospace;
+  font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.28rem .65rem;cursor:pointer;transition:all .18s;
+}
+.copy-code-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* TRAINING PROGRESS VIZ */
+.train-progress{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:1.5rem 0}
+@media(max-width:580px){.train-progress{grid-template-columns:1fr}}
+.train-card{background:var(--surface);border:1px solid var(--border);padding:1.25rem}
+.train-card-title{font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:1rem}
+.epoch-bar-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
+.epoch-label{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--text-faint);width:52px;text-align:right;flex-shrink:0}
+.epoch-track{flex:1;background:rgba(255,255,255,.04);height:14px;overflow:hidden;border-radius:1px}
+.epoch-fill-loss{background:linear-gradient(90deg,var(--red),var(--orange));height:100%}
+.epoch-fill-acc{background:linear-gradient(90deg,var(--purple),var(--accent));height:100%}
+.epoch-val{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--text-dim);width:38px;flex-shrink:0}
+
+/* OUTPUT TERMINAL */
+.terminal{background:#050608;border:1px solid var(--border);padding:1.25rem 1.5rem;font-family:'DM Mono',monospace;font-size:.76rem;line-height:1.8;overflow-x:auto}
+.t-dim{color:#3e4258}.t-accent{color:var(--accent)}.t-green{color:var(--green)}
+.t-yellow{color:var(--orange)}.t-red{color:var(--red)}.t-purple{color:var(--purple)}
+.t-white{color:var(--text)}
+.terminal-header{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;background:#0a0b0e;border:1px solid var(--border);border-bottom:none}
+.t-dot{width:10px;height:10px;border-radius:50%}
+
+/* BIBTEX */
+.bib-box{background:var(--surface);border:1px solid var(--border);padding:1.5rem;font-family:'DM Mono',monospace;font-size:.78rem;line-height:1.9;color:var(--text-dim);position:relative;overflow-x:auto;white-space:pre}
+.bib-key{color:var(--purple)}.bib-val{color:var(--accent)}.bib-br{color:var(--text-faint)}
+.copy-btn{position:absolute;top:1rem;right:1rem;background:transparent;border:1px solid var(--border2);color:var(--text-faint);font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .7rem;cursor:pointer;transition:all .18s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* HALLUCINATION FLOW INFOGRAPHIC */
+.hall-flow{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;margin:2rem 0}
+.hall-box{background:var(--surface);border:1px solid var(--border);padding:1.25rem;text-align:center}
+.hall-box-title{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:.75rem}
+.hall-claim{font-size:.82rem;color:var(--text-dim);padding:.4rem .6rem;border-radius:2px;margin-bottom:.35rem;text-align:left}
+.hall-claim.bad{background:rgba(255,94,94,.1);border-left:2px solid var(--red);color:var(--red)}
+.hall-claim.good{background:rgba(0,229,153,.1);border-left:2px solid var(--green);color:var(--green)}
+.hall-claim.neutral{background:rgba(134,140,168,.08);border-left:2px solid var(--border2)}
+.hall-arrow-col{display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.hall-arrow{font-size:1.4rem;color:var(--accent)}
+.hall-arrow-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint);letter-spacing:.1em;text-transform:uppercase;text-align:center}
+@media(max-width:600px){.hall-flow{grid-template-columns:1fr;gap:.75rem}.hall-arrow-col{flex-direction:row}}
+
+/* RADIAL PROGRESS */
+.radial-grid{display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:center;margin:2rem 0}
+.radial-item{display:flex;flex-direction:column;align-items:center;gap:.6rem}
+.radial-label{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);text-align:center}
+.radial-sub{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint);text-align:center}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:3rem 0;text-align:center;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text-faint);letter-spacing:.08em}
+.footer-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:.08em;color:var(--text);margin-bottom:.75rem}
+.footer-brand span{color:var(--accent)}
+footer a{color:var(--text-dim);text-decoration:none}
+footer a:hover{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">SENSOR<span>/</span>BABEL</a>
+    <ul class="nav-links">
+      <li><a href="#abstract">Abstract</a></li>
+      <li><a href="#method">Method</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#code">Code</a></li>
+      <li><a href="#benchmark">Dataset</a></li>
+      <li><a href="#bibtex">Cite</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header>
+  <div class="hero-grid"></div>
+  <div class="hero-orb"></div>
+  <div class="wrap">
+    <div class="badge"><span class="badge-dot"></span>CVPR 2026 &nbsp;·&nbsp; MMFM5 Workshop</div>
+    <h1>Exploiting <em>Physical Sensor Authority</em> as an Inference-Time Hallucination Firewall for Multimodal LLMs</h1>
+    <div class="authors-row">
+      <div class="author-card">
+        <span class="author-name">Md Muntaqim Meherab<sup>*</sup></span>
+        <span class="author-inst">Daffodil International University</span>
+        <span class="author-email">meherab2305101354@diu.edu.bd</span>
+      </div>
+      <div class="author-card">
+        <span class="author-name">Noor Islam S. Mohammad</span>
+        <span class="author-inst">New York University</span>
+      </div>
+    </div>
+    <p class="footnote">
+      <sup>*</sup> Corresponding author &nbsp;·&nbsp;
+      DIU NLP &amp; ML Research Lab, Daffodil International University, Dhaka, Bangladesh
+    </p>
+    <div class="cta-row">
+      <a href="https://openreview.net/forum?id=l7omWe93Mg" target="_blank" class="btn btn-primary">📄 Paper (OpenReview)</a>
+      <a href="#code" class="btn btn-outline">💻 Code</a>
+      <a href="#benchmark" class="btn btn-outline">🗂 SensorHalluc Dataset</a>
+      <a href="#bibtex" class="btn btn-outline">📎 BibTeX</a>
+    </div>
+  </div>
+</header>
+
+<!-- KPI STRIP -->
+<div class="wrap-wide" style="position:relative;z-index:1;margin-top:-1px">
+  <div class="kpi-strip reveal">
+    <div class="kpi"><div class="kpi-val">62.7%</div><div class="kpi-tag">Hallucination Reduction</div><div class="kpi-sub">CHAIR S: 72.7 → 27.1</div></div>
+    <div class="kpi"><div class="kpi-val">34.9pp</div><div class="kpi-tag">SH-F1 over RLHF</div><div class="kpi-sub">No retraining needed</div></div>
+    <div class="kpi"><div class="kpi-val">30K</div><div class="kpi-tag">Parameters</div><div class="kpi-sub">Zero MLLM weight changes</div></div>
+    <div class="kpi"><div class="kpi-val">&lt;200ms</div><div class="kpi-tag">Added Latency</div><div class="kpi-sub">Single T4 GPU per scene</div></div>
+    <div class="kpi"><div class="kpi-val">4,200</div><div class="kpi-tag">Benchmark Scenes</div><div class="kpi-sub">25,222 annotated claims</div></div>
+    <div class="kpi"><div class="kpi-val">168</div><div class="kpi-tag">Scenes to Near-Peak</div><div class="kpi-sub">Only 5% training data</div></div>
+  </div>
+</div>
+
+<!-- ABSTRACT -->
+<section id="abstract">
+  <div class="wrap">
+    <div class="sec-tag">Abstract</div>
+    <div class="abstract-box reveal">
+      <p>Multimodal large language models (MLLMs) routinely hallucinate physical-world claims — inventing objects, misstating distances, and confabulating velocities — at rates between <strong>20% and 35%</strong> on standard benchmarks. Existing fixes either patch the decoding process or require expensive retraining, and both approaches stay entirely inside the model, fighting its biases with more of its own statistics.</p>
+      <p>We take a different route. Sensor-rich platforms such as autonomous vehicles already carry the instruments that can directly adjudicate the claims MLLMs are most often wrong about. We formalize this idea as <strong>sensor authority</strong>: the mutual information between a claim's semantic type and a sensor modality's measurement, and prove that physically orthogonal sensors provide a <strong>hallucination firewall</strong> independent of the model's generation process.</p>
+      <p>Building on this, we introduce <strong>SensorBabel</strong>, a lightweight four-stage inference-time module — claim extraction, sensor routing, verdict scoring, and contrastive re-weighting — that wraps any frozen MLLM without touching its weights. Evaluated on <strong>SensorHalluc</strong>, a new benchmark of 4,200 synchronized multi-sensor driving scenes, SensorBabel reduces CHAIR S from 72.7 to 27.1 and improves SH-F1 by 34.9 points over an RLHF-finetuned baseline using only 30,218 trainable parameters.</p>
+    </div>
+    <div class="tag-row" style="margin-top:1.5rem">
+      <span class="tag active">Hallucination Mitigation</span>
+      <span class="tag active">Multimodal LLMs</span>
+      <span class="tag active">Sensor Fusion</span>
+      <span class="tag active">Autonomous Driving</span>
+      <span class="tag">Inference-Time Only</span>
+      <span class="tag">No Retraining</span>
+      <span class="tag">LiDAR · Radar · Thermal · Depth</span>
+    </div>
+
+    <!-- HALLUCINATION FLOW INFOGRAPHIC -->
+    <h3 style="margin-top:2.5rem">The Core Insight</h3>
+    <p>MLLMs hallucinate physical facts. The ground truth lies in measurement — not in the model's own statistics.</p>
+    <div class="hall-flow reveal">
+      <div class="hall-box">
+        <div class="hall-box-title">MLLM Output (uncorrected)</div>
+        <div class="hall-claim bad">❌ "The truck is 2m ahead" <span style="font-size:.7rem;opacity:.7">(LiDAR: 8.4m)</span></div>
+        <div class="hall-claim bad">❌ "Object moving fast" <span style="font-size:.7rem;opacity:.7">(Radar: stationary)</span></div>
+        <div class="hall-claim good">✓ "Vehicle detected"</div>
+        <div class="hall-claim bad">❌ "Metal surface" <span style="font-size:.7rem;opacity:.7">(Thermal: plastic)</span></div>
+        <div class="hall-claim neutral">· "Road is wet"</div>
+      </div>
+      <div class="hall-arrow-col">
+        <div class="hall-arrow">→</div>
+        <div class="hall-arrow-label">SensorBabel<br>Firewall</div>
+      </div>
+      <div class="hall-box">
+        <div class="hall-box-title">After SensorBabel</div>
+        <div class="hall-claim bad" style="text-decoration:line-through;opacity:.4">❌ "The truck is 2m ahead"</div>
+        <div class="hall-claim bad" style="text-decoration:line-through;opacity:.4">❌ "Object moving fast"</div>
+        <div class="hall-claim good">✓ "Vehicle detected"</div>
+        <div class="hall-claim bad" style="text-decoration:line-through;opacity:.4">❌ "Metal surface"</div>
+        <div class="hall-claim neutral">· "Road is wet"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTRIBUTIONS -->
+<section>
+  <div class="wrap">
+    <div class="sec-tag">Contributions</div>
+    <h2>What We Introduce</h2>
+    <ul class="contrib-list reveal">
+      <li><div class="c-num">1</div><div class="c-text"><strong>Sensor Authority — Formal Definition.</strong> Mutual information between claim semantics and sensor measurements, with three theoretical guarantees: Sensor Independence Firewall (Thm. 3.3), Near-Bayes-Optimal Routing Regret (Thm. 3.4), and Corrected Entropy Bound (Thm. 3.5).</div></li>
+      <li><div class="c-num">2</div><div class="c-text"><strong>SensorBabel Pipeline.</strong> A four-stage inference-time module wrapping any frozen MLLM with only 30,218 parameters — claim extractor, SRP routing policy, sensor verdict networks, and contrastive re-weighting. Zero weight updates.</div></li>
+      <li><div class="c-num">3</div><div class="c-text"><strong>SensorHalluc Benchmark.</strong> 4,200 synchronized multi-sensor driving scenes with 25,222 labeled claims across four semantic types, including a full SNR matrix calibrated to physical measurement theory.</div></li>
+      <li><div class="c-num">4</div><div class="c-text"><strong>Extensive Experiments.</strong> Five ablation studies and generalization across four base MLLMs (LLaVA-1.6, InternVL2, Qwen-VL, DriveLM) showing ~62.9% consistent CHAIR S reduction — no model-specific calibration required.</div></li>
+    </ul>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section id="method">
+  <div class="wrap">
+    <div class="sec-tag">Method</div>
+    <h2>SensorBabel — Architecture</h2>
+    <p>Four stages operate entirely at inference time. No MLLM weights are ever modified.</p>
+
+    <!-- PIPELINE SVG -->
+    <div class="pipeline-wrap reveal">
+      <div class="pipeline-svg-container">
+        <svg viewBox="0 0 760 205" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+          <defs>
+            <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#3e4258"/></marker>
+            <marker id="arr2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#00e5ff"/></marker>
+          </defs>
+          <rect x="0" y="22" width="90" height="158" fill="#0d0f16" stroke="#1c1f2e" stroke-width="1"/>
+          <text x="45" y="16" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="7" letter-spacing="1.5">SENSORS</text>
+          <rect x="6" y="30"  width="78" height="18" fill="none" stroke="#00e5ff" stroke-width="1" rx="1"/><text x="45" y="43" text-anchor="middle" fill="#00e5ff" font-family="DM Mono,monospace" font-size="8">LiDAR</text>
+          <rect x="6" y="54"  width="78" height="18" fill="none" stroke="#8b7fff" stroke-width="1" rx="1"/><text x="45" y="67" text-anchor="middle" fill="#8b7fff" font-family="DM Mono,monospace" font-size="8">Radar</text>
+          <rect x="6" y="78"  width="78" height="18" fill="none" stroke="#ff5e5e" stroke-width="1" rx="1"/><text x="45" y="91" text-anchor="middle" fill="#ff5e5e" font-family="DM Mono,monospace" font-size="8">Thermal</text>
+          <rect x="6" y="102" width="78" height="18" fill="none" stroke="#00e599" stroke-width="1" rx="1"/><text x="45" y="115" text-anchor="middle" fill="#00e599" font-family="DM Mono,monospace" font-size="8">Depth</text>
+          <rect x="6" y="126" width="78" height="18" fill="none" stroke="#ffaa4d" stroke-width="1" rx="1"/><text x="45" y="139" text-anchor="middle" fill="#ffaa4d" font-family="DM Mono,monospace" font-size="8">IMU</text>
+          <rect x="6" y="150" width="78" height="18" fill="none" stroke="#4a4f68" stroke-width="1" rx="1"/><text x="45" y="163" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="8">RGB Cam</text>
+          <line x1="90"  y1="100" x2="106" y2="100" stroke="#3e4258" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="228" y1="100" x2="244" y2="100" stroke="#3e4258" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="366" y1="100" x2="382" y2="100" stroke="#3e4258" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="504" y1="100" x2="520" y2="100" stroke="#3e4258" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="642" y1="100" x2="658" y2="100" stroke="#00e5ff" stroke-width="1.8" marker-end="url(#arr2)"/>
+          <rect x="108" y="32" width="120" height="138" fill="#0d0f16" stroke="#1c1f2e" stroke-width="1"/><rect x="108" y="32" width="120" height="3" fill="#00e5ff"/>
+          <text x="168" y="54" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5" letter-spacing="1.2">STAGE 1</text>
+          <text x="168" y="75" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Claim</text>
+          <text x="168" y="90" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Extractor</text>
+          <text x="168" y="111" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">SPO triples</text>
+          <text x="168" y="123" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">semantic type τ</text>
+          <text x="168" y="135" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">confidence κ ≥ 0.55</text>
+          <text x="168" y="158" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5">Thm. 3.3</text>
+          <rect x="246" y="32" width="120" height="138" fill="#0d0f16" stroke="#1c1f2e" stroke-width="1"/><rect x="246" y="32" width="120" height="3" fill="#8b7fff"/>
+          <text x="306" y="54" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5" letter-spacing="1.2">STAGE 2</text>
+          <text x="306" y="75" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Routing Policy</text>
+          <text x="306" y="90" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">(SRP)</text>
+          <text x="306" y="111" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">3-layer MLP</text>
+          <text x="306" y="123" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">12,933 params</text>
+          <text x="306" y="135" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">handles dropout</text>
+          <text x="306" y="158" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5">Thm. 3.4</text>
+          <rect x="384" y="32" width="120" height="138" fill="#0d0f16" stroke="#1c1f2e" stroke-width="1"/><rect x="384" y="32" width="120" height="3" fill="#ff5e5e"/>
+          <text x="444" y="54" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5" letter-spacing="1.2">STAGE 3a</text>
+          <text x="444" y="75" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Verdict</text>
+          <text x="444" y="90" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Networks</text>
+          <text x="444" y="111" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">5 × 2-layer MLP</text>
+          <text x="444" y="123" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">3,457 params each</text>
+          <text x="444" y="135" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">v ∈ [0,1] verdict</text>
+          <text x="444" y="158" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5">Thm. 3.5</text>
+          <rect x="522" y="32" width="120" height="138" fill="#0d0f16" stroke="#1c1f2e" stroke-width="1"/><rect x="522" y="32" width="120" height="3" fill="#00e599"/>
+          <text x="582" y="54" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5" letter-spacing="1.2">STAGE 3b</text>
+          <text x="582" y="75" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Contrastive</text>
+          <text x="582" y="90" text-anchor="middle" fill="#e6e8f2" font-family="Syne,sans-serif" font-size="11" font-weight="700">Re-weighting</text>
+          <text x="582" y="111" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">λ = 2.5 (default)</text>
+          <text x="582" y="123" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">logistic suppression</text>
+          <text x="582" y="135" text-anchor="middle" fill="#868ca8" font-family="DM Mono,monospace" font-size="7">σ(λ(0.5 − v))</text>
+          <rect x="660" y="62" width="96" height="78" fill="#07080b" stroke="#00e5ff" stroke-width="1.5" rx="1"/>
+          <text x="708" y="88"  text-anchor="middle" fill="#00e5ff" font-family="Syne,sans-serif" font-size="10" font-weight="700">Hallucination</text>
+          <text x="708" y="102" text-anchor="middle" fill="#00e5ff" font-family="Syne,sans-serif" font-size="10" font-weight="700">-Free Output</text>
+          <text x="708" y="122" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="6.5">0 weight updates</text>
+          <rect x="108" y="183" width="534" height="14" fill="none" stroke="#1c1f2e" stroke-width="1" stroke-dasharray="4,3"/>
+          <text x="375" y="193" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="7" letter-spacing="1.5">ZERO RETRAINING — INFERENCE-TIME ONLY — 30,218 PARAMETERS TOTAL</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- SENSOR ROUTING -->
+    <h3>Physics-Driven Sensor Routing</h3>
+    <p>Each claim type is routed to the sensor whose physics directly measures its truth. These assignments follow <em>measurement physics</em>, not data-driven search.</p>
+    <div class="sensor-grid reveal">
+      <div class="sensor-card sc-lidar"><div class="sc-name">LiDAR</div><div class="sc-claim">Existence Claims</div><div class="sc-principle">Time-of-flight photon ranging</div><div class="sc-snr">Auth. SNR: 5.0 ★ Highest</div></div>
+      <div class="sensor-card sc-depth"><div class="sc-name">Depth Camera</div><div class="sc-claim">Spatial Claims</div><div class="sc-principle">Calibrated stereo disparity</div><div class="sc-snr">Auth. SNR: 4.5 ★</div></div>
+      <div class="sensor-card sc-radar"><div class="sc-name">Radar</div><div class="sc-claim">Motion Claims</div><div class="sc-principle">Doppler frequency shift</div><div class="sc-snr">Auth. SNR: 4.8 ★</div></div>
+      <div class="sensor-card sc-thermal"><div class="sc-name">Thermal</div><div class="sc-claim">Material Claims</div><div class="sc-principle">Blackbody emissivity mapping</div><div class="sc-snr">Auth. SNR: 3.8 ★</div></div>
+      <div class="sensor-card sc-imu"><div class="sc-name">IMU</div><div class="sc-claim">Fallback / Ego-motion</div><div class="sc-principle">Inertial velocity integration</div><div class="sc-snr">SNR: 0.65–2.5 · Non-auth.</div></div>
+    </div>
+
+    <!-- SNR HEATMAP -->
+    <h3>Full Sensor–Claim SNR Matrix</h3>
+    <div class="heatmap-wrap reveal">
+      <table class="heatmap">
+        <thead><tr><th>Claim \ Sensor</th><th style="color:var(--lidar)">LiDAR</th><th style="color:var(--radar)">Radar</th><th style="color:var(--thermal)">Thermal</th><th style="color:var(--depth)">Depth</th><th style="color:var(--imu)">IMU</th></tr></thead>
+        <tbody>
+          <tr><td>Existence</td><td class="cell-auth" style="color:var(--lidar)">5.0 ★</td><td style="color:var(--text-faint)">1.4</td><td style="color:var(--text-faint)">1.1</td><td style="color:var(--text-faint)">1.8</td><td style="color:var(--text-faint)">0.75</td></tr>
+          <tr><td>Spatial</td><td style="color:var(--text-faint)">2.2</td><td style="color:var(--text-faint)">1.3</td><td style="color:var(--text-faint)">0.85</td><td class="cell-auth" style="color:var(--depth)">4.5 ★</td><td style="color:var(--text-faint)">0.70</td></tr>
+          <tr><td>Motion</td><td style="color:var(--text-faint)">1.6</td><td class="cell-auth" style="color:var(--radar)">4.8 ★</td><td style="color:var(--text-faint)">0.80</td><td style="color:var(--text-faint)">0.90</td><td style="color:var(--text-dim)">2.5</td></tr>
+          <tr><td>Material</td><td style="color:var(--text-faint)">1.2</td><td style="color:var(--text-faint)">0.80</td><td class="cell-auth" style="color:var(--thermal)">3.8 ★</td><td style="color:var(--text-faint)">1.0</td><td style="color:var(--text-faint)">0.65</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- THEOREMS -->
+    <h3>Key Theoretical Guarantees</h3>
+    <div class="reveal">
+      <div class="theorem"><div class="theorem-tag">Theorem 3.3 — Sensor Independence Firewall</div><p>If sensor s<sub>i</sub> is physically orthogonal to the MLLM's generation channel, then as sensor noise ‖ε<sub>i</sub>‖ → 0, the probability of falsely suppressing a true claim → 0 <em>independently of p<sub>M</sub></em>. LiDAR and a language model's token distribution share no statistical dependencies by construction.</p></div>
+      <div class="theorem"><div class="theorem-tag">Theorem 3.4 — Near-Bayes-Optimal Routing Regret</div><p>The empirical routing policy π̂ achieves regret <em>O(√(k log k / N))</em>. With k = 5 sensors the k log k term is small — explaining why 168 labeled scenes (5% of data) already reach within 1.1 CHAIR S points of full-data performance.</p></div>
+      <div class="theorem"><div class="theorem-tag">Theorem 3.5 — Corrected Entropy Bound</div><p>Under the SensorBabel corrected distribution (Eq. 9), output entropy satisfies H(p<sub>SB</sub>) ≤ H(p<sub>M</sub>) · exp(−λ·Δ<sub>min</sub>), concentrating the decoding distribution around sensor-consistent outputs.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="wrap">
+    <div class="sec-tag">Results</div>
+    <h2>Main Results on SensorHalluc</h2>
+    <p>840 test scenes, λ = 2.5. SensorBabel achieves the best result on all four metrics with zero MLLM retraining.</p>
+    <table class="results-table reveal">
+      <thead><tr><th>Method</th><th>Retrain?</th><th>CHAIR S ↓</th><th>CHAIR I ↓</th><th>SH-F1 ↑</th><th>VQA ↑</th><th>ΔCHAIR S</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Base (LLaVA-1.5)</strong></td><td><span class="tag-no">✗</span></td><td>72.7</td><td>21.8</td><td>0.0</td><td>27.3</td><td>—</td></tr>
+        <tr><td><strong>VCD</strong></td><td><span class="tag-no">✗</span></td><td>64.6</td><td>17.8</td><td>30.8</td><td>35.4</td><td>−8.1</td></tr>
+        <tr><td><strong>OPERA</strong></td><td><span class="tag-no">✗</span></td><td>60.5</td><td>15.6</td><td>44.4</td><td>39.5</td><td>−12.2</td></tr>
+        <tr><td><strong>RLHF †</strong></td><td><span class="tag-yes">✓ Required</span></td><td>57.3</td><td>14.5</td><td>50.3</td><td>42.7</td><td>−15.4</td></tr>
+        <tr class="ours"><td><strong>SensorBabel (Ours)</strong></td><td><span class="tag-no">✗</span></td><td class="best">27.1</td><td class="best">5.7</td><td class="best">85.2</td><td class="best">72.9</td><td class="best">−45.6</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:.78rem;color:var(--text-faint);margin-top:-.5rem">† RLHF requires tens of thousands of GPU-hours; still outperformed by SensorBabel on all metrics.</p>
+
+    <!-- RADIAL INFOGRAPHIC — per-type reduction -->
+    <h3>Per-Claim-Type Hallucination Reduction</h3>
+    <div class="radial-grid reveal">
+      <div class="radial-item">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1c1f2e" stroke-width="8"/>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="var(--lidar)" stroke-width="8" stroke-dasharray="193.9 250.1" stroke-dashoffset="62" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text x="50" y="46" text-anchor="middle" fill="var(--lidar)" font-family="DM Serif Display,serif" font-size="16">77.4</text>
+          <text x="50" y="60" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="8">%</text>
+        </svg>
+        <div class="radial-label">Existence</div>
+        <div class="radial-sub" style="color:var(--lidar)">LiDAR · SNR 5.0</div>
+      </div>
+      <div class="radial-item">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1c1f2e" stroke-width="8"/>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="var(--thermal)" stroke-width="8" stroke-dasharray="190.8 251.3" stroke-dashoffset="62" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text x="50" y="46" text-anchor="middle" fill="var(--thermal)" font-family="DM Serif Display,serif" font-size="16">76.2</text>
+          <text x="50" y="60" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="8">%</text>
+        </svg>
+        <div class="radial-label">Material</div>
+        <div class="radial-sub" style="color:var(--thermal)">Thermal · SNR 3.8</div>
+      </div>
+      <div class="radial-item">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1c1f2e" stroke-width="8"/>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="var(--depth)" stroke-width="8" stroke-dasharray="180.4 251.3" stroke-dashoffset="62" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text x="50" y="46" text-anchor="middle" fill="var(--depth)" font-family="DM Serif Display,serif" font-size="16">72.0</text>
+          <text x="50" y="60" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="8">%</text>
+        </svg>
+        <div class="radial-label">Spatial</div>
+        <div class="radial-sub" style="color:var(--depth)">Depth · SNR 4.5</div>
+      </div>
+      <div class="radial-item">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1c1f2e" stroke-width="8"/>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="var(--radar)" stroke-width="8" stroke-dasharray="175.8 251.3" stroke-dashoffset="62" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text x="50" y="46" text-anchor="middle" fill="var(--radar)" font-family="DM Serif Display,serif" font-size="16">70.1</text>
+          <text x="50" y="60" text-anchor="middle" fill="#3e4258" font-family="DM Mono,monospace" font-size="8">%</text>
+        </svg>
+        <div class="radial-label">Motion</div>
+        <div class="radial-sub" style="color:var(--radar)">Radar · SNR 4.8</div>
+      </div>
+    </div>
+
+    <div class="charts-2col reveal">
+      <div class="chart-box">
+        <div class="chart-title">CHAIR S ↓ — lower is better</div>
+        <div class="bar-row"><div class="bar-lbl">Base</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:100%"><span>72.7</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">VCD</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:88.9%"><span>64.6</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">OPERA</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:83.2%"><span>60.5</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">RLHF†</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:78.8%"><span>57.3</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">Ours</div><div class="bar-track"><div class="bar-fill bf-cyan" style="width:37.3%">27.1</div></div></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">SH-F1 ↑ — higher is better</div>
+        <div class="bar-row"><div class="bar-lbl">Base</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:.5%"></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">VCD</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:36.1%"><span>30.8</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">OPERA</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:52.1%"><span>44.4</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">RLHF†</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:59%"><span>50.3</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">Ours</div><div class="bar-track"><div class="bar-fill bf-cyan" style="width:100%">85.2</div></div></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">VQA Accuracy ↑ — higher is better</div>
+        <div class="bar-row"><div class="bar-lbl">Base</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:37.5%"><span>27.3</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">VCD</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:48.6%"><span>35.4</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">OPERA</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:54.2%"><span>39.5</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">RLHF†</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:58.6%"><span>42.7</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">Ours</div><div class="bar-track"><div class="bar-fill bf-cyan" style="width:100%">72.9</div></div></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">CHAIR I ↓ — lower is better</div>
+        <div class="bar-row"><div class="bar-lbl">Base</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:100%"><span>21.8</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">VCD</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:81.6%"><span>17.8</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">OPERA</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:71.5%"><span>15.6</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">RLHF†</div><div class="bar-track"><div class="bar-fill bf-dim" style="width:66.5%"><span>14.5</span></div></div></div>
+        <div class="bar-row"><div class="bar-lbl">Ours</div><div class="bar-track"><div class="bar-fill bf-cyan" style="width:26.1%">5.7</div></div></div>
+      </div>
+    </div>
+
+    <!-- ABLATION I -->
+    <h3>Ablation I — Component Contributions</h3>
+    <table class="ab-table reveal">
+      <thead><tr><th>Configuration</th><th>SRP</th><th>Soft Verdict</th><th>Re-weighting</th><th>CHAIR S ↓</th><th>SH-F1 ↑</th></tr></thead>
+      <tbody>
+        <tr class="best-row"><td><strong>Full SensorBabel</strong></td><td class="ck">✓</td><td class="ck">✓</td><td class="ck">✓</td><td class="hi">27.1</td><td class="hi">85.2</td></tr>
+        <tr><td>Random Routing</td><td class="cx">✗</td><td class="ck">✓</td><td class="ck">✓</td><td>45.7</td><td>69.6</td></tr>
+        <tr><td>Binary Verdict</td><td class="ck">✓</td><td class="cx">✗</td><td class="ck">✓</td><td>26.9</td><td>85.2</td></tr>
+        <tr><td>No Re-weighting</td><td class="ck">✓</td><td class="ck">✓</td><td class="cx">✗</td><td>72.7</td><td>0.0</td></tr>
+        <tr><td>LiDAR-only Routing</td><td class="cx">✗</td><td class="ck">✓</td><td class="ck">✓</td><td>47.7</td><td>66.0</td></tr>
+      </tbody>
+    </table>
+
+    <!-- GENERALIZATION -->
+    <h3>Generalization Across Base MLLMs</h3>
+    <div class="chart-box reveal" style="margin-top:1rem">
+      <div class="chart-title">CHAIR S — gray = base model &nbsp;|&nbsp; cyan = + SensorBabel (~62.9% avg. reduction)</div>
+      <div class="gen-row"><div class="gen-label">LLaVA-1.6</div><div class="gen-track"><div class="gen-base" style="width:100%">72.7</div><div class="gen-ours" style="width:37.3%">27.1 (−62.7%)</div></div></div>
+      <div class="gen-row"><div class="gen-label">InternVL2</div><div class="gen-track"><div class="gen-base" style="width:94.8%">70.6</div><div class="gen-ours" style="width:34.6%">25.8 (−63.4%)</div></div></div>
+      <div class="gen-row"><div class="gen-label">Qwen-VL</div><div class="gen-track"><div class="gen-base" style="width:95.7%">71.3</div><div class="gen-ours" style="width:35.3%">26.3 (−63.2%)</div></div></div>
+      <div class="gen-row"><div class="gen-label">DriveLM</div><div class="gen-track"><div class="gen-base" style="width:100%">74.5</div><div class="gen-ours" style="width:37.8%">28.2 (−62.2%)</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CODE SECTION -->
+<section id="code">
+  <div class="wrap">
+    <div class="sec-tag">Implementation</div>
+    <h2>Code — SensorBabel Pipeline</h2>
+    <p>The full experiment is implemented in PyTorch. Below are the core modules from our implementation: the <strong>Sensor Routing Policy</strong>, <strong>Verdict Networks</strong>, and the <strong>Contrastive Re-weighting</strong> stage. Training takes under 12 minutes on a single T4 GPU.</p>
+
+    <!-- TABS -->
+    <div class="code-tabs reveal">
+      <div class="code-tab active" onclick="showTab('srp')">Stage 2 · SRP</div>
+      <div class="code-tab" onclick="showTab('verdict')">Stage 3a · Verdict Net</div>
+      <div class="code-tab" onclick="showTab('reweight')">Stage 3b · Re-weighting</div>
+      <div class="code-tab" onclick="showTab('train')">Training Loop</div>
+      <div class="code-tab" onclick="showTab('metrics')">Eval Metrics</div>
+    </div>
+
+    <div class="code-block-wrap reveal">
+
+      <!-- SRP -->
+      <div class="code-panel active" id="tab-srp">
+        <div class="code-section-header">
+          <div class="code-file-label"><span class="code-dot" style="background:var(--purple)"></span>sensor_routing_policy.py</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint)">12,933 params · Paper §4.3</div>
+        </div>
+        <button class="copy-code-btn" onclick="copyCode('srp-raw')">Copy</button>
+        <pre class="code-block"><span class="cm"># ── Stage 2: Sensor Routing Policy (SRP) ─────────────────────────────────
+# π̂(cⱼ) = argmax_i SRP_ψ(eⱼ, a)_i
+# Input: claim embedding + sensor availability vector
+# Output: routing probability distribution over sensors</span>
+
+<span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+<span class="kw">import</span> torch.nn.functional <span class="kw">as</span> F
+
+<span class="kw">class</span> <span class="cls">SensorRoutingPolicy</span>(nn.Module):
+    <span class="str">"""
+    3-layer MLP routing policy trained with cross-entropy
+    plus entropy regularisation (β=0.05) to prevent
+    degenerate routing under partial sensor availability.
+
+    Loss: L_SRP = L_CE - β · H(SRP_ψ(eⱼ, a))
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="py-self">self</span>,
+                 input_dim: int = <span class="num">69</span>,   <span class="cm"># CLAIM_DIM + N_SENSORS</span>
+                 hidden1:   int = <span class="num">128</span>,
+                 hidden2:   int = <span class="num">64</span>,
+                 n_sensors: int = <span class="num">5</span>):
+        <span class="fn">super</span>().__init__()
+        <span class="py-self">self</span>.net = nn.Sequential(
+            nn.<span class="cls">Linear</span>(input_dim, hidden1),
+            nn.<span class="cls">GELU</span>(),
+            nn.<span class="cls">Linear</span>(hidden1, hidden2),
+            nn.<span class="cls">GELU</span>(),
+            nn.<span class="cls">Linear</span>(hidden2, n_sensors),
+        )
+
+    <span class="kw">def</span> <span class="fn">forward</span>(<span class="py-self">self</span>, claim_emb, avail):
+        <span class="cm"># claim_emb : (B, CLAIM_DIM)
+        # avail     : (B, N_SENSORS) binary mask
+        # returns   : (B, N_SENSORS) routing logits</span>
+        x      = torch.cat([claim_emb, avail], dim=-<span class="num">1</span>)
+        logits = <span class="py-self">self</span>.net(x)
+        <span class="cm"># Mask unavailable sensors before softmax</span>
+        logits = logits.masked_fill(avail == <span class="num">0</span>, -<span class="num">1e9</span>)
+        <span class="kw">return</span> logits
+
+    <span class="kw">def</span> <span class="fn">route</span>(<span class="py-self">self</span>, claim_emb, avail):
+        <span class="str">"""Returns hard argmax routing decision."""</span>
+        <span class="kw">with</span> torch.no_grad():
+            logits = <span class="py-self">self</span>.forward(claim_emb, avail)
+            <span class="kw">return</span> logits.argmax(dim=-<span class="num">1</span>)
+
+<span class="cm"># Entropy regularisation helper</span>
+<span class="kw">def</span> <span class="fn">srp_loss</span>(logits, targets, beta=<span class="num">0.05</span>):
+    ce   = F.cross_entropy(logits, targets)
+    probs = F.softmax(logits, dim=-<span class="num">1</span>)
+    ent  = -(probs * probs.log().clamp(min=-<span class="num">1e9</span>)).sum(dim=-<span class="num">1</span>).mean()
+    <span class="kw">return</span> ce - beta * ent  <span class="cm"># maximise entropy → diverse routing</span></pre>
+        <textarea id="srp-raw" style="position:absolute;opacity:0;pointer-events:none" readonly>
+class SensorRoutingPolicy(nn.Module):
+    def __init__(self, input_dim=69, hidden1=128, hidden2=64, n_sensors=5):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden1), nn.GELU(),
+            nn.Linear(hidden1, hidden2),  nn.GELU(),
+            nn.Linear(hidden2, n_sensors),
+        )
+
+    def forward(self, claim_emb, avail):
+        x      = torch.cat([claim_emb, avail], dim=-1)
+        logits = self.net(x)
+        logits = logits.masked_fill(avail == 0, -1e9)
+        return logits
+
+    def route(self, claim_emb, avail):
+        with torch.no_grad():
+            return self.forward(claim_emb, avail).argmax(dim=-1)
+
+def srp_loss(logits, targets, beta=0.05):
+    ce   = F.cross_entropy(logits, targets)
+    probs = F.softmax(logits, dim=-1)
+    ent  = -(probs * probs.log().clamp(min=-1e9)).sum(dim=-1).mean()
+    return ce - beta * ent
+        </textarea>
+      </div>
+
+      <!-- VERDICT -->
+      <div class="code-panel" id="tab-verdict">
+        <div class="code-section-header">
+          <div class="code-file-label"><span class="code-dot" style="background:var(--red)"></span>verdict_network.py</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint)">3,457 params each · 5 networks · Paper §4.4</div>
+        </div>
+        <button class="copy-code-btn" onclick="copyCode('verdict-raw')">Copy</button>
+        <pre class="code-block"><span class="cm"># ── Stage 3a: Sensor-Specific Verdict Networks ────────────────────────────
+# vⱼ = Vᵢ(xᵢ,ⱼ)  where i = π̂(cⱼ)
+# One dedicated 2-layer MLP per sensor — trained ONLY on claims
+# where that sensor is authoritative. This is the key design choice:
+# non-authoritative sensors produce verdicts near 0.5 (uncertain),
+# degrading gracefully under routing errors.</span>
+
+<span class="kw">class</span> <span class="cls">VerdictNetwork</span>(nn.Module):
+    <span class="str">"""
+    Binary hallucination classifier for a single sensor modality.
+    Input : sensor feature vector (shape: SENSOR_FEAT_DIM)
+    Output: scalar ∈ [0,1]  (1 = consistent, 0 = hallucinated)
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="py-self">self</span>, feat_dim: int = <span class="num">32</span>, hidden: int = <span class="num">32</span>):
+        <span class="fn">super</span>().__init__()
+        <span class="py-self">self</span>.net = nn.Sequential(
+            nn.<span class="cls">Linear</span>(feat_dim, hidden),
+            nn.<span class="cls">GELU</span>(),
+            nn.<span class="cls">Linear</span>(hidden, <span class="num">1</span>),
+            nn.<span class="cls">Sigmoid</span>(),
+        )
+
+    <span class="kw">def</span> <span class="fn">forward</span>(<span class="py-self">self</span>, sensor_feat):
+        <span class="kw">return</span> <span class="py-self">self</span>.net(sensor_feat).squeeze(-<span class="num">1</span>)
+
+
+<span class="cm"># Signal-attenuation model (paper §4.4)
+# Non-authoritative features are attenuated toward 0.5,
+# ensuring routing errors produce uncertain (not confident wrong) verdicts.</span>
+<span class="kw">def</span> <span class="fn">get_sensor_features</span>(scene, sensor_idx, claim_idx, snr_matrix):
+    base_feat = scene[<span class="str">"sensor_data"</span>][sensor_idx][claim_idx]
+    snr       = snr_matrix[claim_idx][sensor_idx]
+    <span class="cm"># Attenuate non-authoritative features toward decision boundary</span>
+    attenuation = <span class="num">1.0</span> - (<span class="num">1.0</span> / (<span class="num">1.0</span> + snr))
+    <span class="kw">return</span> base_feat * attenuation + (<span class="num">1</span> - attenuation) * <span class="num">0.5</span>
+
+
+<span class="cm"># Build all 5 verdict networks (one per sensor)</span>
+verdict_nets = [<span class="cls">VerdictNetwork</span>(feat_dim=<span class="num">32</span>) <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>)]
+<span class="cm"># Total verdict params: 5 × 3,457 = 17,285</span></pre>
+        <textarea id="verdict-raw" style="position:absolute;opacity:0;pointer-events:none" readonly>
+class VerdictNetwork(nn.Module):
+    def __init__(self, feat_dim=32, hidden=32):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(feat_dim, hidden), nn.GELU(),
+            nn.Linear(hidden, 1), nn.Sigmoid(),
+        )
+
+    def forward(self, sensor_feat):
+        return self.net(sensor_feat).squeeze(-1)
+
+verdict_nets = [VerdictNetwork(feat_dim=32) for _ in range(5)]
+        </textarea>
+      </div>
+
+      <!-- RE-WEIGHTING -->
+      <div class="code-panel" id="tab-reweight">
+        <div class="code-section-header">
+          <div class="code-file-label"><span class="code-dot" style="background:var(--green)"></span>contrastive_reweighting.py</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint)">λ=2.5 default · Paper §4.5, Eq. 9</div>
+        </div>
+        <button class="copy-code-btn" onclick="copyCode('rw-raw')">Copy</button>
+        <pre class="code-block"><span class="cm"># ── Stage 3b: Contrastive Re-weighting ───────────────────────────────────
+# Ψ(y, X_S) = (1/n) Σⱼ (2·vⱼ − 1) · 𝟙[cⱼ ∈ E(y)]
+# p_SB(y | x_rgb, X_S) ∝ p_M(y | x_rgb) · exp(λ · Ψ)
+#
+# Bernoulli suppression at claim level:
+# P(suppress cⱼ) = σ(λ · (0.5 − vⱼ))
+# → high vⱼ (sensor-consistent) → low suppression prob
+# → low vⱼ (hallucinated)       → high suppression prob</span>
+
+<span class="kw">import</span> torch, numpy <span class="kw">as</span> np
+
+<span class="kw">class</span> <span class="cls">ContrastiveReweighter</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="py-self">self</span>, lam: float = <span class="num">2.5</span>):
+        <span class="py-self">self</span>.lam = lam
+
+    <span class="kw">def</span> <span class="fn">suppress</span>(<span class="py-self">self</span>, verdicts, hallucinated_gt, rng):
+        <span class="str">"""
+        verdicts       : (n_claims,) float tensor in [0,1]
+        hallucinated_gt: (n_claims,) bool  — ground truth labels
+        rng            : numpy RandomState for reproducibility
+        Returns corrected hallucination labels after suppression.
+        """</span>
+        corrected = hallucinated_gt.copy()
+        <span class="kw">for</span> j, v <span class="kw">in</span> <span class="fn">enumerate</span>(verdicts):
+            <span class="cm"># Suppression probability (logistic)</span>
+            p_sup = <span class="num">1.0</span> / (<span class="num">1.0</span> + np.exp(-<span class="py-self">self</span>.lam * (<span class="num">0.5</span> - v)))
+            <span class="kw">if</span> hallucinated_gt[j]:
+                <span class="cm"># Suppress hallucinated claim with prob p_sup</span>
+                <span class="kw">if</span> rng.rand() < p_sup:
+                    corrected[j] = <span class="kw">False</span>
+        <span class="kw">return</span> corrected
+
+    <span class="kw">def</span> <span class="fn">scene_consistency_score</span>(<span class="py-self">self</span>, verdicts):
+        <span class="str">"""Ψ(y, X_S) — Eq. 8 in the paper."""</span>
+        <span class="kw">if</span> <span class="fn">len</span>(verdicts) == <span class="num">0</span>:
+            <span class="kw">return</span> <span class="num">0.0</span>
+        <span class="kw">return</span> np.mean([<span class="num">2</span> * v - <span class="num">1</span> <span class="kw">for</span> v <span class="kw">in</span> verdicts])
+
+<span class="cm"># λ sensitivity: lower λ → conservative, higher λ → aggressive suppression
+# Paper reports: CHAIR_S 43.7 at λ=0.5 → 18.1 at λ=5.0 (monotone ↓)</span></pre>
+        <textarea id="rw-raw" style="position:absolute;opacity:0;pointer-events:none" readonly>
+class ContrastiveReweighter:
+    def __init__(self, lam=2.5):
+        self.lam = lam
+
+    def suppress(self, verdicts, hallucinated_gt, rng):
+        corrected = hallucinated_gt.copy()
+        for j, v in enumerate(verdicts):
+            p_sup = 1.0 / (1.0 + np.exp(-self.lam * (0.5 - v)))
+            if hallucinated_gt[j]:
+                if rng.rand() < p_sup:
+                    corrected[j] = False
+        return corrected
+        </textarea>
+      </div>
+
+      <!-- TRAINING -->
+      <div class="code-panel" id="tab-train">
+        <div class="code-section-header">
+          <div class="code-file-label"><span class="code-dot" style="background:var(--orange)"></span>train.py</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint)">&lt;12 min · T4 GPU · PyTorch 2.10 · seed 2026</div>
+        </div>
+        <button class="copy-code-btn" onclick="copyCode('train-raw')">Copy</button>
+        <pre class="code-block"><span class="cm"># ── Joint Training: SRP + Verdict Networks ────────────────────────────────
+# All 5 verdict nets + SRP trained jointly with Adam
+# Cosine annealing LR schedule over 80 epochs</span>
+
+optimizer = torch.optim.<span class="cls">Adam</span>(
+    <span class="fn">list</span>(srp.parameters()) +
+    [p <span class="kw">for</span> vn <span class="kw">in</span> verdict_nets <span class="kw">for</span> p <span class="kw">in</span> vn.parameters()],
+    lr=<span class="num">3e-3</span>, weight_decay=<span class="num">1e-4</span>
+)
+scheduler = torch.optim.lr_scheduler.<span class="cls">CosineAnnealingLR</span>(
+    optimizer, T_max=<span class="num">80</span>, eta_min=<span class="num">1.5e-4</span>
+)
+
+<span class="kw">for</span> epoch <span class="kw">in</span> <span class="fn">range</span>(<span class="num">80</span>):
+    srp.train()
+    <span class="kw">for</span> vn <span class="kw">in</span> verdict_nets: vn.train()
+    epoch_loss = <span class="num">0.0</span>
+
+    <span class="kw">for</span> batch <span class="kw">in</span> train_loader:
+        claim_emb, avail, route_tgt = (
+            batch[<span class="str">"claim_emb"</span>], batch[<span class="str">"avail"</span>], batch[<span class="str">"route_target"</span>]
+        )
+        <span class="cm"># SRP forward + loss</span>
+        srp_logits = srp(claim_emb, avail)
+        loss_srp   = srp_loss(srp_logits, route_tgt, beta=<span class="num">0.05</span>)
+
+        <span class="cm"># Verdict network losses (sensor-specific)</span>
+        loss_verd = <span class="num">0.0</span>
+        <span class="kw">for</span> si <span class="kw">in</span> <span class="fn">range</span>(N_SENSORS):
+            mask = route_tgt == si
+            <span class="kw">if</span> mask.any():
+                feats   = batch[<span class="str">f"sensor_feat_{si}"</span>][mask]
+                targets = batch[<span class="str">"verdict_target"</span>][mask].float()
+                preds   = verdict_nets[si](feats)
+                loss_verd += F.binary_cross_entropy(preds, targets)
+
+        loss = loss_srp + loss_verd
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
+
+    scheduler.step()
+
+<span class="cm"># Final SRP routing accuracy: 94.0% (Bayes-optimal: 88.4%)</span></pre>
+        <textarea id="train-raw" style="position:absolute;opacity:0;pointer-events:none" readonly>
+optimizer = torch.optim.Adam(
+    list(srp.parameters()) + [p for vn in verdict_nets for p in vn.parameters()],
+    lr=3e-3, weight_decay=1e-4
+)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=80, eta_min=1.5e-4)
+
+for epoch in range(80):
+    for batch in train_loader:
+        claim_emb, avail, route_tgt = batch["claim_emb"], batch["avail"], batch["route_target"]
+        srp_logits = srp(claim_emb, avail)
+        loss_srp   = srp_loss(srp_logits, route_tgt, beta=0.05)
+        loss_verd  = sum(
+            F.binary_cross_entropy(verdict_nets[si](batch[f"sensor_feat_{si}"][route_tgt==si]),
+                                   batch["verdict_target"][route_tgt==si].float())
+            for si in range(N_SENSORS) if (route_tgt==si).any()
+        )
+        (loss_srp + loss_verd).backward()
+        optimizer.step(); optimizer.zero_grad()
+    scheduler.step()
+        </textarea>
+      </div>
+
+      <!-- METRICS -->
+      <div class="code-panel" id="tab-metrics">
+        <div class="code-section-header">
+          <div class="code-file-label"><span class="code-dot" style="background:var(--accent)"></span>metrics.py</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-faint)">4 metrics · Paper §6 Table 2</div>
+        </div>
+        <button class="copy-code-btn" onclick="copyCode('metrics-raw')">Copy</button>
+        <pre class="code-block"><span class="cm"># ── Evaluation Metrics (Paper §6) ─────────────────────────────────────────</span>
+
+<span class="kw">def</span> <span class="fn">compute_chair_s</span>(corrected_labels_list):
+    <span class="str">"""CHAIR_S: % of scenes with ≥1 remaining hallucinated claim (↓)."""</span>
+    hall = <span class="fn">sum</span>(<span class="fn">any</span>(labels) <span class="kw">for</span> labels <span class="kw">in</span> corrected_labels_list <span class="kw">if</span> labels)
+    <span class="kw">return</span> <span class="num">100.0</span> * hall / <span class="fn">max</span>(<span class="fn">len</span>(corrected_labels_list), <span class="num">1</span>)
+
+<span class="kw">def</span> <span class="fn">compute_chair_i</span>(corrected_labels_list):
+    <span class="str">"""CHAIR_I: % of individual claims still hallucinated (↓)."""</span>
+    flat = [l <span class="kw">for</span> labels <span class="kw">in</span> corrected_labels_list <span class="kw">for</span> l <span class="kw">in</span> labels]
+    <span class="kw">return</span> <span class="num">100.0</span> * <span class="fn">sum</span>(flat) / <span class="fn">max</span>(<span class="fn">len</span>(flat), <span class="num">1</span>)
+
+<span class="kw">def</span> <span class="fn">compute_sh_f1</span>(corrected_list, gt_list):
+    <span class="str">"""SH-F1: harmonic mean of suppression precision and recall (↑)."""</span>
+    tp = fp = fn = <span class="num">0</span>
+    <span class="kw">for</span> corr, gt <span class="kw">in</span> <span class="fn">zip</span>(corrected_list, gt_list):
+        <span class="kw">for</span> c, g <span class="kw">in</span> <span class="fn">zip</span>(corr, gt):
+            suppressed = g <span class="kw">and not</span> c
+            <span class="kw">if</span> g <span class="kw">and</span> suppressed:  tp += <span class="num">1</span>
+            <span class="kw">elif</span> <span class="kw">not</span> g <span class="kw">and</span> suppressed: fp += <span class="num">1</span>
+            <span class="kw">elif</span> g <span class="kw">and not</span> suppressed: fn += <span class="num">1</span>
+    prec = tp / <span class="fn">max</span>(tp + fp, <span class="num">1</span>)
+    rec  = tp / <span class="fn">max</span>(tp + fn, <span class="num">1</span>)
+    <span class="kw">return</span> <span class="num">100.0</span> * <span class="num">2</span> * prec * rec / <span class="fn">max</span>(prec + rec, <span class="num">1e-9</span>)
+
+<span class="cm"># Results on 840 test scenes (λ=2.5):
+# ┌────────────────┬──────────┬──────────┬────────┬─────────┐
+# │ Method         │ CHAIR_S↓ │ CHAIR_I↓ │ SH-F1↑ │ VQA Acc↑│
+# ├────────────────┼──────────┼──────────┼────────┼─────────┤
+# │ Base (LLaVA)   │   72.7   │   21.8   │   0.0  │  27.3   │
+# │ VCD            │   64.6   │   17.8   │  30.8  │  35.4   │
+# │ OPERA          │   60.5   │   15.6   │  44.4  │  39.5   │
+# │ RLHF†          │   57.3   │   14.5   │  50.3  │  42.7   │
+# │ SensorBabel ★  │   27.1   │    5.7   │  85.2  │  72.9   │
+# └────────────────┴──────────┴──────────┴────────┴─────────┘</span></pre>
+        <textarea id="metrics-raw" style="position:absolute;opacity:0;pointer-events:none" readonly>
+def compute_chair_s(corrected_labels_list):
+    hall = sum(any(labels) for labels in corrected_labels_list if labels)
+    return 100.0 * hall / max(len(corrected_labels_list), 1)
+
+def compute_chair_i(corrected_labels_list):
+    flat = [l for labels in corrected_labels_list for l in labels]
+    return 100.0 * sum(flat) / max(len(flat), 1)
+
+def compute_sh_f1(corrected_list, gt_list):
+    tp = fp = fn = 0
+    for corr, gt in zip(corrected_list, gt_list):
+        for c, g in zip(corr, gt):
+            suppressed = g and not c
+            if g and suppressed:      tp += 1
+            elif not g and suppressed: fp += 1
+            elif g and not suppressed: fn += 1
+    prec = tp / max(tp + fp, 1)
+    rec  = tp / max(tp + fn, 1)
+    return 100.0 * 2 * prec * rec / max(prec + rec, 1e-9)
+        </textarea>
+      </div>
+
+    </div><!-- end code-block-wrap -->
+
+    <!-- TRAINING PROGRESS -->
+    <h3>Training Progress (80 epochs · T4 GPU · &lt;12 min)</h3>
+    <div class="train-progress reveal">
+      <div class="train-card">
+        <div class="train-card-title">SRP Cross-Entropy Loss (↓)</div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 1</div><div class="epoch-track"><div class="epoch-fill-loss" style="width:100%"></div></div><div class="epoch-val">1.21</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 10</div><div class="epoch-track"><div class="epoch-fill-loss" style="width:72%"></div></div><div class="epoch-val">0.87</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 20</div><div class="epoch-track"><div class="epoch-fill-loss" style="width:51%"></div></div><div class="epoch-val">0.62</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 40</div><div class="epoch-track"><div class="epoch-fill-loss" style="width:28%"></div></div><div class="epoch-val">0.34</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 80</div><div class="epoch-track"><div class="epoch-fill-loss" style="width:8%"></div></div><div class="epoch-val" style="color:var(--green)">0.09</div></div>
+      </div>
+      <div class="train-card">
+        <div class="train-card-title">SRP Routing Accuracy (↑)</div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 1</div><div class="epoch-track"><div class="epoch-fill-acc" style="width:25%"></div></div><div class="epoch-val">25.0%</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 10</div><div class="epoch-track"><div class="epoch-fill-acc" style="width:61%"></div></div><div class="epoch-val">57.8%</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 20</div><div class="epoch-track"><div class="epoch-fill-acc" style="width:80%"></div></div><div class="epoch-val">76.2%</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 40</div><div class="epoch-track"><div class="epoch-fill-acc" style="width:90%"></div></div><div class="epoch-val">85.5%</div></div>
+        <div class="epoch-bar-row"><div class="epoch-label">Epoch 80</div><div class="epoch-track"><div class="epoch-fill-acc" style="width:99%"></div></div><div class="epoch-val" style="color:var(--accent)">94.0%</div></div>
+      </div>
+    </div>
+
+    <!-- TERMINAL OUTPUT -->
+    <h3>Sample Experiment Output</h3>
+    <div class="terminal-header reveal">
+      <div class="t-dot" style="background:#ff5f57"></div>
+      <div class="t-dot" style="background:#febc2e"></div>
+      <div class="t-dot" style="background:#28c840"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-faint);margin-left:.5rem">sensorbabel · experiment · QUICK_TEST=False · N_SCENES=4200</span>
+    </div>
+    <div class="terminal reveal">
+<span class="t-dim">════════════════════════════════════════════════════════════════════</span>
+<span class="t-accent">  SENSORBABEL — CONSOLIDATED RESULTS</span>
+<span class="t-dim">════════════════════════════════════════════════════════════════════</span>
+<span class="t-dim">  QUICK_TEST  = False</span>
+<span class="t-dim">  N_SCENES    = 4200   (train: 3360 · test: 840)</span>
+<span class="t-dim">  SRP routing accuracy (epoch 80): </span><span class="t-accent">94.0%</span>
+<span class="t-dim">════════════════════════════════════════════════════════════════════</span>
+
+<span class="t-dim">Training SRP + Verdict Networks…</span>
+  <span class="t-dim">Epoch  10/80  loss=</span><span class="t-yellow">0.871</span>  <span class="t-dim">srp_acc=</span><span class="t-yellow">57.8%</span>
+  <span class="t-dim">Epoch  20/80  loss=</span><span class="t-yellow">0.624</span>  <span class="t-dim">srp_acc=</span><span class="t-yellow">76.2%</span>
+  <span class="t-dim">Epoch  40/80  loss=</span><span class="t-yellow">0.341</span>  <span class="t-dim">srp_acc=</span><span class="t-yellow">85.5%</span>
+  <span class="t-dim">Epoch  80/80  loss=</span><span class="t-green">0.094</span>  <span class="t-dim">srp_acc=</span><span class="t-accent">94.0%</span>
+<span class="t-dim">Training complete in </span><span class="t-green">11m 42s</span>
+
+<span class="t-dim">Running evaluation on 840 test scenes…</span>
+<span class="t-dim">┌──────────────────┬──────────┬──────────┬────────┬─────────┬───────────┐</span>
+<span class="t-dim">│ Method           │ CHAIR_S↓ │ CHAIR_I↓ │ SH-F1↑ │ VQA Acc↑│ Δ CHAIR_S │</span>
+<span class="t-dim">├──────────────────┼──────────┼──────────┼────────┼─────────┼───────────┤</span>
+<span class="t-dim">│ Base             │   72.7   │   21.8   │   0.0  │   27.3  │     —     │</span>
+<span class="t-dim">│ VCD              │   64.6   │   17.8   │  30.8  │   35.4  │   −8.1   │</span>
+<span class="t-dim">│ Opera            │   60.5   │   15.6   │  44.4  │   39.5  │  −12.2   │</span>
+<span class="t-dim">│ RLHF†            │   57.3   │   14.5   │  50.3  │   42.7  │  −15.4   │</span>
+<span class="t-accent">│ SensorBabel ★    │   27.1   │    5.7   │  85.2  │   72.9  │  −45.6   │</span>
+<span class="t-dim">└──────────────────┴──────────┴──────────┴────────┴─────────┴───────────┘</span>
+
+<span class="t-green">✓ SensorBabel outperforms all baselines on every metric.</span>
+<span class="t-green">✓ 62.7% hallucination reduction vs base — no MLLM weights modified.</span>
+<span class="t-dim">Figures saved to ./figures/  (PDF + PNG, 300 DPI)</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- BENCHMARK -->
+<section id="benchmark">
+  <div class="wrap">
+    <div class="sec-tag">Dataset</div>
+    <h2>SensorHalluc Benchmark</h2>
+    <p>The first benchmark providing <strong>synchronized multi-sensor driving data</strong> for studying sensor-level hallucination verification. Five modalities, oracle-verified labels, 96.4% human agreement.</p>
+    <div class="bench-grid reveal">
+      <div class="bench-card" style="border-top-color:var(--lidar)"><div class="bench-type">Existence</div><div class="bench-sensor" style="color:var(--lidar)">Auth: LiDAR · SNR 5.0</div><div class="bench-count" style="color:var(--lidar)">6,494</div><div class="bench-rate">Hall. rate 22.3% · Reduction 77.4%</div></div>
+      <div class="bench-card" style="border-top-color:var(--depth)"><div class="bench-type">Spatial</div><div class="bench-sensor" style="color:var(--depth)">Auth: Depth · SNR 4.5</div><div class="bench-count" style="color:var(--depth)">6,440</div><div class="bench-rate">Hall. rate 31.4% (highest) · Reduction 72.0%</div></div>
+      <div class="bench-card" style="border-top-color:var(--radar)"><div class="bench-type">Motion</div><div class="bench-sensor" style="color:var(--radar)">Auth: Radar · SNR 4.8</div><div class="bench-count" style="color:var(--radar)">6,127</div><div class="bench-rate">Hall. rate 20.3% (lowest) · Reduction 70.1%</div></div>
+      <div class="bench-card" style="border-top-color:var(--thermal)"><div class="bench-type">Material</div><div class="bench-sensor" style="color:var(--thermal)">Auth: Thermal · SNR 3.8</div><div class="bench-count" style="color:var(--thermal)">6,161</div><div class="bench-rate">Hall. rate 27.1% · Reduction 76.2%</div></div>
+    </div>
+    <div class="info-box reveal">
+      <p><strong>Construction:</strong> Each scene is a 20-second segment with LiDAR at 20 Hz, radar at 13 Hz, thermal at 15 Hz, stereo depth at 12 Hz, and IMU at 100 Hz, all aligned to a common 2 Hz annotation keyframe. LLaVA-1.5 generates descriptions; atomic SPO claims are verified by modality-specific oracle classifiers. Human annotators confirmed <strong>96.4% agreement</strong> on 500 randomly sampled claims. Split: 80/20 (3,360 / 840 scenes), stratified by hallucination rate ±1%.</p>
+    </div>
+  </div>
+</section>
+
+<!-- BIBTEX -->
+<section id="bibtex">
+  <div class="wrap">
+    <div class="sec-tag">Citation</div>
+    <h2>BibTeX</h2>
+    <div class="bib-box reveal"><button class="copy-btn" onclick="copyBib()">Copy</button><span class="bib-br">@inproceedings{</span><span class="bib-val">meherab2026exploiting</span><span class="bib-br">,</span>
+  <span class="bib-key">title</span>     = <span class="bib-br">{</span><span class="bib-val">Exploiting Physical Sensor Authority as an Inference-Time Hallucination Firewall for Multimodal {LLM}s</span><span class="bib-br">},</span>
+  <span class="bib-key">author</span>    = <span class="bib-br">{</span><span class="bib-val">Md Muntaqim Meherab and Noor Islam S. Mohammad</span><span class="bib-br">},</span>
+  <span class="bib-key">booktitle</span> = <span class="bib-br">{</span><span class="bib-val">MMFM5: The 5th Workshop on What is Next in Multimodal Foundation Models?</span><span class="bib-br">},</span>
+  <span class="bib-key">year</span>      = <span class="bib-br">{</span><span class="bib-val">2026</span><span class="bib-br">},</span>
+  <span class="bib-key">url</span>       = <span class="bib-br">{</span><span class="bib-val">https://openreview.net/forum?id=l7omWe93Mg</span><span class="bib-br">}</span>
+<span class="bib-br">}</span></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="footer-brand">SENSOR<span>//</span>BABEL</div>
+    <div>© 2026 Md Muntaqim Meherab &nbsp;·&nbsp; CVPR MMFM5</div>
+    <div style="margin-top:.6rem">
+      <a href="mailto:meherab2305101354@diu.edu.bd">meherab2305101354@diu.edu.bd</a>
+      &nbsp;·&nbsp;
+      <a href="https://openreview.net/forum?id=l7omWe93Mg" target="_blank">OpenReview</a>
+      &nbsp;·&nbsp;
+      DIU NLP &amp; ML Research Lab &nbsp;·&nbsp; Daffodil International University, Dhaka
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ── Scroll reveal ── */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e,i) => {
+    if(e.isIntersecting){setTimeout(()=>e.target.classList.add('in'),i*65);io.unobserve(e.target)}
+  });
+},{threshold:0.07});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ── Code tabs ── */
+function showTab(name){
+  document.querySelectorAll('.code-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.code-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.code-tab').forEach(t=>{
+    if(t.textContent.toLowerCase().includes(name.toLowerCase())||
+       (name==='srp'&&t.textContent.includes('SRP'))||
+       (name==='verdict'&&t.textContent.includes('Verdict'))||
+       (name==='reweight'&&t.textContent.includes('Re-weighting'))||
+       (name==='train'&&t.textContent.includes('Training'))||
+       (name==='metrics'&&t.textContent.includes('Eval'))
+    ) t.classList.add('active');
+  });
+  document.getElementById('tab-'+name)?.classList.add('active');
+}
+
+/* ── Copy code ── */
+function copyCode(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  navigator.clipboard.writeText(el.value.trim()).then(()=>{
+    const btns=document.querySelectorAll('.copy-code-btn');
+    btns.forEach(b=>{if(b.closest('.code-panel.active')){b.textContent='Copied ✓';b.style.color='var(--accent)';b.style.borderColor='var(--accent)';setTimeout(()=>{b.textContent='Copy';b.style.color='';b.style.borderColor=''},2000)}});
+  });
+}
+
+/* ── Copy bibtex ── */
+function copyBib(){
+  const txt=`@inproceedings{meherab2026exploiting,\n  title     = {Exploiting Physical Sensor Authority as an Inference-Time Hallucination Firewall for Multimodal {LLM}s},\n  author    = {Md Muntaqim Meherab and Noor Islam S. Mohammad},\n  booktitle = {MMFM5: The 5th Workshop on What is Next in Multimodal Foundation Models?},\n  year      = {2026},\n  url       = {https://openreview.net/forum?id=l7omWe93Mg}\n}`;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='Copied ✓';btn.style.color='var(--accent)';btn.style.borderColor='var(--accent)';
+    setTimeout(()=>{btn.textContent='Copy';btn.style.color='';btn.style.borderColor=''},2500);
+  });
+}
+</script>
+</body>
+</html>
